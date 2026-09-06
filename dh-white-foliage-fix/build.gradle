@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev' version '2.0.107'
+}
+
+version = project.mod_version
+group = project.mod_group_id
+base.archivesName = 'dh-white-foliage-fix'
+
+// Bump to 25 if 1.26.2 moved off Java 21 -- check your launcher's JVM
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        client {
+            client()
+        }
+    }
+
+    mods {
+        dhwff {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    // Uncomment if you want to compile directly against DH instead of reflectively
+    // exclusiveContent {
+    //     forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
+    //     filter { includeGroup 'maven.modrinth' }
+    // }
+}
+
+dependencies {
+    // compileOnly 'maven.modrinth:distanthorizons:<version-id>'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+processResources {
+    var props = [minecraft_version: minecraft_version, neo_version: neo_version, mod_version: mod_version]
+    inputs.properties props
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand props
+    }
+}
