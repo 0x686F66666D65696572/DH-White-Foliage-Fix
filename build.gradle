@@ -8,7 +8,7 @@ group = project.mod_group_id
 base.archivesName = 'dh-white-foliage-fix'
 
 // Bump to 25 if 1.26.2 moved off Java 21 -- check your launcher's JVM
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 neoForge {
     version = project.neo_version
@@ -41,7 +41,7 @@ dependencies {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release = 21
+    options.release = 25
 }
 
 processResources {
