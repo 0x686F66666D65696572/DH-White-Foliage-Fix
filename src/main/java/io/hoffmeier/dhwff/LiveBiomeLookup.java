@@ -4,7 +4,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.biome.Biome;
 
 import java.lang.reflect.Field;
@@ -17,18 +16,22 @@ import java.util.regex.Pattern;
 
 /**
  * Everything DH-specific is done reflectively so that a DH internal rename breaks one lookup
- * instead of crashing the game. The only hard coupling to DH lives in the mixin annotation.
+ * instead of crashing the game.
+ *
+ * Biome identifiers are handled as plain strings rather than ResourceLocation. That class moved
+ * out of net.minecraft.resources in 1.26.2 and toString() gives the same namespace:path text
+ * without needing to name the type, which keeps this file insulated from where it landed.
  */
 public final class LiveBiomeLookup {
 
-    private static final Pattern RESOURCE_LOCATION = Pattern.compile("([a-z0-9_.-]+):([a-z0-9_./-]+)");
+    private static final Pattern RESOURCE_ID = Pattern.compile("([a-z0-9_.-]+):([a-z0-9_./-]+)");
 
     /** Per-class field probe results. index 0 = id source, 1 = biome wrapper, 2 = stale Biome. */
     private static final Map<Class<?>, Field[]> PROBE_CACHE = new ConcurrentHashMap<>();
     private static final Map<Class<?>, Method> SERIAL_METHOD_CACHE = new ConcurrentHashMap<>();
 
     private static Registry<Biome> cachedRegistry;
-    private static Map<ResourceLocation, Biome> cachedById;
+    private static Map<String, Biome> cachedById;
 
     private LiveBiomeLookup() {
     }
@@ -52,7 +55,7 @@ public final class LiveBiomeLookup {
                 return null;
             }
 
-            ResourceLocation id = readId(tintOverrider, probe);
+            String id = readId(tintOverrider, probe);
             if (id == null) {
                 return null;
             }
@@ -65,15 +68,14 @@ public final class LiveBiomeLookup {
         }
     }
 
-    private static ResourceLocation readId(Object tintOverrider, Field[] probe) throws IllegalAccessException {
-        // Preferred: DH already stores an identifier
+    private static String readId(Object tintOverrider, Field[] probe) throws Exception {
+        // Preferred: DH already stores an identifier of some kind
         if (probe[0] != null) {
             Object raw = probe[0].get(tintOverrider);
-            if (raw instanceof ResourceLocation rl) {
-                return rl;
-            }
-            if (raw instanceof ResourceKey<?> key) {
-                return key.location();
+            if (raw != null) {
+                // ResourceKey prints as ResourceKey[<registry id> / <value id>] -- we want the
+                // second one. A bare identifier prints as just namespace:path.
+                return raw instanceof ResourceKey<?> ? lastId(raw.toString()) : firstId(raw.toString());
             }
         }
 
@@ -85,10 +87,7 @@ public final class LiveBiomeLookup {
                 if (serial != null) {
                     Object value = serial.invoke(wrapper);
                     if (value instanceof String s) {
-                        Matcher m = RESOURCE_LOCATION.matcher(s);
-                        if (m.find()) {
-                            return ResourceLocation.tryParse(m.group());
-                        }
+                        return firstId(s);
                     }
                 }
             }
@@ -97,12 +96,26 @@ public final class LiveBiomeLookup {
         return null;
     }
 
+    private static String firstId(String raw) {
+        Matcher m = RESOURCE_ID.matcher(raw);
+        return m.find() ? m.group() : null;
+    }
+
+    private static String lastId(String raw) {
+        Matcher m = RESOURCE_ID.matcher(raw);
+        String last = null;
+        while (m.find()) {
+            last = m.group();
+        }
+        return last;
+    }
+
     private static Field[] probe(Class<?> type) {
         Field[] found = new Field[3];
         for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
             for (Field f : c.getDeclaredFields()) {
                 Class<?> ft = f.getType();
-                if (found[0] == null && (ft == ResourceLocation.class || ft == ResourceKey.class)) {
+                if (found[0] == null && (ft == ResourceKey.class || ft.getSimpleName().equals("ResourceLocation"))) {
                     f.setAccessible(true);
                     found[0] = f;
                 } else if (found[1] == null && ft.getSimpleName().contains("BiomeWrapper")) {
@@ -163,13 +176,16 @@ public final class LiveBiomeLookup {
         return null;
     }
 
-    private static Map<ResourceLocation, Biome> byId(Registry<Biome> registry) {
+    private static Map<String, Biome> byId(Registry<Biome> registry) {
         if (registry == cachedRegistry && cachedById != null) {
             return cachedById;
         }
-        Map<ResourceLocation, Biome> map = new HashMap<>();
+        Map<String, Biome> map = new HashMap<>();
         for (Map.Entry<ResourceKey<Biome>, Biome> entry : registry.entrySet()) {
-            map.put(entry.getKey().location(), entry.getValue());
+            String id = lastId(entry.getKey().toString());
+            if (id != null) {
+                map.put(id, entry.getValue());
+            }
         }
         cachedRegistry = registry;
         cachedById = map;
