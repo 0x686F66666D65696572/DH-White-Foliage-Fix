@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "io.hoffmeier.dhwff.mixin",
+  "plugin": "io.hoffmeier.dhwff.DhwffMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,37 @@
+modLoader = "javafml"
+loaderVersion = "[26,)"
+license = "MIT"
+
+[[mods]]
+modId = "dhwff"
+version = "1.0.0"
+displayName = "DH White Foliage Fix"
+authors = "Brayden Hoffmeier"
+description = '''
+Re-resolves Distant Horizons LOD biome tints against the live biome registry so foliage,
+grass and water stop rendering white after a world reload or server reconnect.
+'''
+
+[[mixins]]
+config = "dhwff.mixins.json"
+
+[[dependencies.dhwff]]
+modId = "neoforge"
+type = "required"
+versionRange = "[26.2.0.79,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.dhwff]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.26.2,1.27)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.dhwff]]
+modId = "distanthorizons"
+type = "required"
+versionRange = "[3.0,)"
+ordering = "AFTER"
+side = "CLIENT"
